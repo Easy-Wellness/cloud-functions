@@ -1,7 +1,6 @@
 {
   "name": "functions",
   "scripts": {
-    "lint": "eslint --ext .js,.ts .",
     "prebuild": "rimraf lib",
     "build": "tsc",
     "build:watch": "npm run prebuild && tsc --watch --preserveWatchOutput",
