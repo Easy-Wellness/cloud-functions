@@ -1,12 +1,11 @@
 // Fix ESLint issue: https://github.com/microsoft/vscode-eslint/issues/1086
-import { initializeApp } from "firebase-admin";
+import admin from 'firebase-admin';
 import { region } from "firebase-functions";
 import { isDeepStrictEqual } from "util";
-import { WriteResult } from "../node_modules/firebase-admin/lib/firestore";
 import { PlaceModel } from "./place";
 import { ServiceModel } from "./service";
 
-initializeApp();
+admin.initializeApp();
 
 const defaultRegion = "asia-southeast1";
 
@@ -27,7 +26,7 @@ export const onPlaceDetailUpdate = region(defaultRegion)
       .orderBy("service_name", "asc")
       .get();
     if (serviceListSnapshot.empty) return null;
-    return await Promise.all<WriteResult>(
+    return await Promise.all<FirebaseFirestore.WriteResult>(
       serviceListSnapshot.docs.map((serviceSnapshot) => {
         const serviceData = serviceSnapshot.data() as ServiceModel;
         const newServiceData: ServiceModel = {
