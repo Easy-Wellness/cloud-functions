@@ -60,3 +60,24 @@ export const onPlaceDetailUpdate = region(defaultRegion)
       updateApptsAsync,
     ]);
   });
+
+export const onServiceUpdate = region(defaultRegion)
+  .firestore.document("places/{placeId}/services/{serviceId}")
+  .onUpdate(async (change, context) => {
+    if (change.before.isEqual(change.after)) return null;
+    const serviceId = context.params["serviceId"];
+    const newServiceData = change.after.data() as ServiceModel;
+    const oldServiceData = change.before.data() as ServiceModel;
+    const db = firestore();
+    if (newServiceData.service_name === oldServiceData.service_name)
+      return null;
+    const apptListSnapshot = await db
+      .collectionGroup("appointments")
+      .where("service_id", "==", serviceId)
+      .get();
+    return await Promise.all<firestore.WriteResult>(
+      apptListSnapshot.docs.map((apptSnapshot) =>
+        apptSnapshot.ref.update({ service_name: newServiceData.service_name })
+      )
+    );
+  });
