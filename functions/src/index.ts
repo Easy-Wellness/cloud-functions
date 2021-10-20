@@ -81,3 +81,31 @@ export const onServiceUpdate = region(defaultRegion)
       )
     );
   });
+
+export const onReviewCreate = region(defaultRegion)
+  .firestore.document(
+    "places/{placeId}/services/{serviceId}/reviews/{reviewId}"
+  )
+  .onCreate((snap, context) => {
+    const placeId = context.params["placeId"];
+    const serviceId = context.params["serviceId"];
+    const newRatingScore = snap.data()["rating"] as number;
+    const db = firestore();
+    const serviceRef = db
+      .collection("places")
+      .doc(placeId)
+      .collection("services")
+      .doc(serviceId);
+    return db.runTransaction(async (transaction) => {
+      const serviceSnap = await transaction.get(serviceRef);
+      const { rating: avgRating, ratings_total: nReviews } =
+        serviceSnap.data() as ServiceModel;
+      const newNumReviews = nReviews + 1;
+      const oldTotalRatingPoints = avgRating * nReviews;
+      const newAvgRating = (oldTotalRatingPoints + newRatingScore) / newNumReviews;
+      transaction.update(serviceRef, {
+        rating: newAvgRating,
+        ratings_total: newNumReviews,
+      });
+    });
+  });
