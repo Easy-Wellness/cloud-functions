@@ -1,7 +1,8 @@
 // Fix ESLint issue: https://github.com/microsoft/vscode-eslint/issues/1086
-import admin from 'firebase-admin';
+import admin, { firestore } from "firebase-admin";
 import { region } from "firebase-functions";
 import { isDeepStrictEqual } from "util";
+import { AppointmentModel } from "./appointment";
 import { PlaceModel } from "./place";
 import { ServiceModel } from "./service";
 
@@ -21,12 +22,13 @@ export const onPlaceDetailUpdate = region(defaultRegion)
       isDeepStrictEqual(newPlaceData.geo_position, oldPlaceData.geo_position)
     )
       return null;
-    const serviceListSnapshot = await change.after.ref
-      .collection("services")
-      .orderBy("service_name", "asc")
-      .get();
-    if (serviceListSnapshot.empty) return null;
-    return await Promise.all<FirebaseFirestore.WriteResult>(
+    const [serviceListSnapshot, apptListSnapshot] = await Promise.all<
+      firestore.QuerySnapshot<firestore.DocumentData>
+    >([
+      change.after.ref.collection("services").get(),
+      change.after.ref.collection("appointments").get(),
+    ]);
+    const updateServicesAsync = Promise.all<FirebaseFirestore.WriteResult>(
       serviceListSnapshot.docs.map((serviceSnapshot) => {
         const serviceData = serviceSnapshot.data() as ServiceModel;
         const newServiceData: ServiceModel = {
@@ -40,4 +42,21 @@ export const onPlaceDetailUpdate = region(defaultRegion)
         return serviceSnapshot.ref.update(newServiceData);
       })
     );
+    const updateApptsAsync = Promise.all<FirebaseFirestore.WriteResult>(
+      apptListSnapshot.docs.map((apptSnapshot) => {
+        const apptData = apptSnapshot.data() as AppointmentModel;
+        const newApptData: AppointmentModel = {
+          place_id: apptData.place_id,
+          place_name: newPlaceData.name,
+          address: newPlaceData.address,
+          service_id: apptData.service_id,
+          service_name: apptData.service_name,
+        };
+        return apptSnapshot.ref.update(newApptData);
+      })
+    );
+    return await Promise.all<firestore.WriteResult[]>([
+      updateServicesAsync,
+      updateApptsAsync,
+    ]);
   });
